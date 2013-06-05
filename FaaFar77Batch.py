@@ -122,23 +122,32 @@ try:
 
     layer = "TEMP_LAYER"
     arcpy.management.MakeFeatureLayer(runwayCenterlinesFC, layer)
+    centerlineCount = arcpy.management.GetCount(runwayCenterlinesFC)
+    i = 0
 
     try:
         # Loop through the runway centerline features...
         with arcpy.da.SearchCursor(runwayCenterlinesFC, fields) as cursor:
             for row in cursor:
-                # Get parameters from the search cursor row.
-                clear_way_length = row[fieldsDict["ClearWayLength"]]
-                high_runway_end_type = approachTypes[row[fieldsDict["HighApproachType"]]]
-                low_runway_end_type = approachTypes[row[fieldsDict["LowApproachType"]]]
-                airport_elevation = row[fieldsDict["AirportReferenceElev"]]
+                print "\n\n\nProcessing row %s of %s..." % (i, centerlineCount)
+                i = i + 1
 
-                # Select the feature with matching OID.
-                arcpy.management.SelectLayerByAttribute(layer, "NEW_SELECTION", '"OBJECTID" = %s' % row[0])
+                try:
+                    # Get parameters from the search cursor row.
+                    clear_way_length = row[fieldsDict["ClearWayLength"]]
+                    high_runway_end_type = approachTypes[row[fieldsDict["HighApproachType"]]]
+                    low_runway_end_type = approachTypes[row[fieldsDict["LowApproachType"]]]
+                    airport_elevation = row[fieldsDict["AirportReferenceElev"]]
 
-                arcpy.FAAFAR77_aeronautical(layer, surfaceFC, clear_way_length, "#", high_runway_end_type,
-                                            low_runway_end_type, airport_elevation, "PREDEFINED_SPECIFICATION")
-                break
+                    # Select the feature with matching OID.
+                    arcpy.management.SelectLayerByAttribute(layer, "NEW_SELECTION", '"OBJECTID" = %s' % row[0])
+
+                    arcpy.FAAFAR77_aeronautical(layer, surfaceFC, clear_way_length, "#", high_runway_end_type,
+                                                low_runway_end_type, airport_elevation, "PREDEFINED_SPECIFICATION")
+                    if arcpy.GetMaxSeverity() > 0:
+                        print arcpy.GetMessages()
+                except arcpy.ExecuteError as ex:
+                    print arcpy.GetMessages()                
     finally:
         arcpy.management.Delete(layer)
 
