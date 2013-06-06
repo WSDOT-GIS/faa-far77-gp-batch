@@ -1,7 +1,7 @@
 import arcpy, re, math
 
 
-class AeronauticalBatch(object):
+class Toolbox(object):
     def __init__(self):
         """Define the toolbox (the name of the toolbox is the name of the
         .pyt file)."""
@@ -13,10 +13,7 @@ class AeronauticalBatch(object):
 
 
 class GenerateSurfaces(object):
-    CENTERLINES_PARAM_ID = 0
-    SURFACE_PARAM_ID = 1
-    APPROACH_TYPES_TABLE_PARAM_ID = 2
-    OUTPUT_PARAM_ID = 3
+
 
     def __init__(self):
         """Define the tool (tool name is the name of the class)."""
@@ -63,10 +60,11 @@ class GenerateSurfaces(object):
         * Either ArcEditor or ArcInfo license must be available.
         * Aeronautical license must be available.
         """        
-        okRe = re.compile("(Available)|(AlreadyInitialized)", re.IGNORECASE)
-        return ((okRe.match(arcpy.CheckProduct("arceditor")) 
-                or okRe.match(arcpy.CheckProduct("arcinfo"))) 
-                and arcpy.CheckExtension("Aeronautical") == "Available")
+        # okRe = re.compile("(Available)|(AlreadyInitialized)", re.IGNORECASE)
+        # return ((okRe.match(arcpy.CheckProduct("arceditor")) 
+                # or okRe.match(arcpy.CheckProduct("arcinfo"))) 
+                # and arcpy.CheckExtension("Aeronautical") == "Available")
+        return True
 
     def updateParameters(self, parameters):
         """Modify the values and properties of parameters before internal
@@ -84,6 +82,11 @@ class GenerateSurfaces(object):
 
     def execute(self, parameters, messages):
         """The source code of the tool."""
+        
+        CENTERLINES_PARAM_ID = 0
+        SURFACE_PARAM_ID = 1
+        APPROACH_TYPES_TABLE_PARAM_ID = 2
+        OUTPUT_PARAM_ID = 3
 
         approachTypesTable = parameters[APPROACH_TYPES_TABLE_PARAM_ID].valueAsText
         runwayCenterlinesFC = parameters[CENTERLINES_PARAM_ID].valueAsText
@@ -134,6 +137,7 @@ class GenerateSurfaces(object):
         layer = "TEMP_LAYER"
         arcpy.management.MakeFeatureLayer(runwayCenterlinesFC, layer)
         centerlineCount = arcpy.management.GetCount(runwayCenterlinesFC)
+        centerlineCount = int(centerlineCount.getOutput(0))
 
         def getIncrement(recordCount):
             """Gets an appropriate increment for the number of records.
@@ -154,25 +158,30 @@ class GenerateSurfaces(object):
             # Loop through the runway centerline features...
             with arcpy.da.SearchCursor(runwayCenterlinesFC, fields) as cursor:
                 for i, row in enumerate(cursor, 0):
-                    print "\n\n\nProcessing row %s of %s..." % (i, centerlineCount)
+                    messages.addMessage("\n\n\nProcessing row %s of %s..." % (i, centerlineCount))
 
                     try:
                         # Get parameters from the search cursor row.
+                        oid = row[0]
                         clear_way_length = row[fieldsDict["ClearWayLength"]]
                         high_runway_end_type = approachTypes[row[fieldsDict["HighApproachType"]]]
                         low_runway_end_type = approachTypes[row[fieldsDict["LowApproachType"]]]
                         airport_elevation = row[fieldsDict["AirportReferenceElev"]]
 
                         # Select the feature with matching OID.
-                        arcpy.management.SelectLayerByAttribute(layer, "NEW_SELECTION", '"OBJECTID" = %s' % row[0])
+                        arcpy.management.SelectLayerByAttribute(layer, "NEW_SELECTION", '"OBJECTID" = %s' % oid)
 
                         arcpy.FAAFAR77_aeronautical(layer, surfaceFC, clear_way_length, "#", high_runway_end_type,
                                                     low_runway_end_type, airport_elevation, "PREDEFINED_SPECIFICATION")
-                        
+                    except IOError as ioEx:
+                        messages.addWarningMessage("An IO error occurred processing record with OID %i.\n%s"  % (ioEx, oid))
                         messages.addGPMessages()
-                        
                     except arcpy.ExecuteError as ex:
-                        print arcpy.GetMessages()
+                        messages.addWarningMessage("Error running FAA FAR 77 tool for OID %i..." % oid)
+                        messages.addGPMessages()
+                    else:
+                        messages.addMessage("Messages for row %i, OID %i:" % (i, oid))
+                        messages.addGPMessages()
                     finally:
                         # Update the position of the progress meter.
                         if (i % increment) == 0:
@@ -181,5 +190,6 @@ class GenerateSurfaces(object):
             # Reset the progress meter to its original state.
             arcpy.ResetProgressor()
             arcpy.management.Delete(layer)
-            parameters[OUTPUT_PARAM_ID].value = parameters[SURFACE_PARAM_ID].value
+            # TODO: Set output parameter
+            # parameters[OUTPUT_PARAM_ID].value = parameters[SURFACE_PARAM_ID].value
         return
