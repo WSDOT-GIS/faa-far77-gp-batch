@@ -178,6 +178,7 @@ class GenerateSurfaces(object):
                         if (i % increment) == 0:
                             arcpy.SetProgressorPosition(i)
         finally:
+            # Reset the progress meter to its original state.
             arcpy.ResetProgressor()
             arcpy.management.Delete(layer)
             parameters[OUTPUT_PARAM_ID].value = parameters[SURFACE_PARAM_ID].value
