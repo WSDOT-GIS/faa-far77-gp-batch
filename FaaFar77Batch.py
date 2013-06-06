@@ -8,30 +8,42 @@ Parameters
 2. Runway Centerlines feature class. Defaults to 'RunwayCenterlinesForSurfacesWithZ_NewElevations'.
 3. Output Surface feature class. Defaults to 'ObstructionIdSurface'.
 4. Approach Types table. Defaults to "ApproachTypeCode".
+
+Required Licenses
+=================
+* ArcGIS for Desktop Standard (nee ArcEditor)
+* Aeronautical Solution Extention
+
+Sample::
+    python FaaFar77Batch.py "c:\path\to\db\FAA_Airports.gdb" "RunwayCenterlinesForSurfacesWithZ_NewElevations" "ObstructionIdSurface" "ApproachTypeCode"
 """
 
 import sys, os, datetime
 
-##print "Checking out license..."
-##try:
-##    import arceditor
-##except RuntimeError as e:
-##    print "ArcEditor license not available.  Trying ArcInfo..."
-##    try:
-##        import arcinfo
-##    except RuntimeError:
-##        msg = "ArcInfo license not available. Cannot continue."
-##        print msg
-##        sys.exit(msg)
+print "Checking out license..."
+try:
+    import arceditor
+except RuntimeError as e:
+    print "ArcGIS for Desktop Standard (nee ArcEditor) license not available."
+    try:
+        import arcinfo
+    except RuntimeError:
+        msg = "ArcInfo license not available. Cannot continue."
+        print msg
+        sys.exit(msg)
+    else:
+        print "Successfully checked out ArcGIS for Desktop Advanced (nee ArcInfo) license"
+else:
+    print "Successfully checked out ArcGIS for Desktop Standard (nee ArcEditor) license"
 
 # The minimum required license is arceditor, but WSDOT currently only has arcview and arcinfo licenses.
-print "Checking out ArcGIS for Desktop Advanced (nee ArcInfo) license..."
-try:
-    import arcinfo
-except RuntimeError:
-    msg = "ArcInfo license not available. Cannot continue."
-    print msg
-    sys.exit(msg)
+#print "Checking out ArcGIS for Desktop Advanced (nee ArcInfo) license..."
+#try:
+#    import arcinfo
+#except RuntimeError:
+#    msg = "ArcInfo license not available. Cannot continue."
+#    print msg
+#    sys.exit(msg)
 
 print "Importing arcpy..."
 import arcpy, arcpy.da
@@ -144,6 +156,7 @@ try:
 
                     arcpy.FAAFAR77_aeronautical(layer, surfaceFC, clear_way_length, "#", high_runway_end_type,
                                                 low_runway_end_type, airport_elevation, "PREDEFINED_SPECIFICATION")
+                    # Check for warnings or errors.  If there are any, print the messages from the tool.
                     if arcpy.GetMaxSeverity() > 0:
                         print arcpy.GetMessages()
                 except arcpy.ExecuteError as ex:
