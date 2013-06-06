@@ -36,14 +36,6 @@ except RuntimeError as e:
 else:
     print "Successfully checked out ArcGIS for Desktop Standard (nee ArcEditor) license"
 
-# The minimum required license is arceditor, but WSDOT currently only has arcview and arcinfo licenses.
-#print "Checking out ArcGIS for Desktop Advanced (nee ArcInfo) license..."
-#try:
-#    import arcinfo
-#except RuntimeError:
-#    msg = "ArcInfo license not available. Cannot continue."
-#    print msg
-#    sys.exit(msg)
 
 print "Importing arcpy..."
 import arcpy, arcpy.da
