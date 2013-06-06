@@ -1,4 +1,4 @@
-import arcpy
+import arcpy, re, math
 
 
 class AeronauticalBatch(object):
@@ -63,8 +63,10 @@ class GenerateSurfaces(object):
         * Either ArcEditor or ArcInfo license must be available.
         * Aeronautical license must be available.
         """        
-        return (arcpy.CheckProduct("arceditor") == "Available" or 
-                arcpy.CheckProduct("arcinfo") == "Available") and arcpy.CheckExtension("Aeronautical") == "Available"
+        okRe = re.compile("(Available)|(AlreadyInitialized)", re.IGNORECASE)
+        return ((okRe.match(arcpy.CheckProduct("arceditor")) 
+                or okRe.match(arcpy.CheckProduct("arcinfo"))) 
+                and arcpy.CheckExtension("Aeronautical") == "Available")
 
     def updateParameters(self, parameters):
         """Modify the values and properties of parameters before internal
@@ -132,14 +134,27 @@ class GenerateSurfaces(object):
         layer = "TEMP_LAYER"
         arcpy.management.MakeFeatureLayer(runwayCenterlinesFC, layer)
         centerlineCount = arcpy.management.GetCount(runwayCenterlinesFC)
-        i = 0
+
+        def getIncrement(recordCount):
+            """Gets an appropriate increment for the number of records.
+            Based on code from http://resources.arcgis.com/en/help/main/10.1/index.html#//001500000032000000
+            """
+            p = math.log10(recordCount)
+            if not p:
+                p = 1
+            inc = int(math.pow(10, p - 1))
+            return inc
+
+        increment = getIncrement(centerlineCount)
+
+        # Setup the progress bar in ArcGIS Desktop to show the progress as each centerline is processed.
+        arcpy.SetProgressor("step", "Generating surfaces...", 0, centerlineCount, increment)
 
         try:
             # Loop through the runway centerline features...
             with arcpy.da.SearchCursor(runwayCenterlinesFC, fields) as cursor:
-                for row in cursor:
+                for i, row in enumerate(cursor, 0):
                     print "\n\n\nProcessing row %s of %s..." % (i, centerlineCount)
-                    i = i + 1
 
                     try:
                         # Get parameters from the search cursor row.
@@ -158,6 +173,12 @@ class GenerateSurfaces(object):
                         
                     except arcpy.ExecuteError as ex:
                         print arcpy.GetMessages()
+                    finally:
+                        # Update the position of the progress meter.
+                        if (i % increment) == 0:
+                            arcpy.SetProgressorPosition(i)
         finally:
+            arcpy.ResetProgressor()
             arcpy.management.Delete(layer)
+            parameters[OUTPUT_PARAM_ID].value = parameters[SURFACE_PARAM_ID].value
         return
