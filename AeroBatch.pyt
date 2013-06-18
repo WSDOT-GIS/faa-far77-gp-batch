@@ -60,11 +60,8 @@ class GenerateSurfaces(object):
         * Either ArcEditor or ArcInfo license must be available.
         * Aeronautical license must be available.
         """        
-        # okRe = re.compile("(Available)|(AlreadyInitialized)", re.IGNORECASE)
-        # return ((okRe.match(arcpy.CheckProduct("arceditor")) 
-                # or okRe.match(arcpy.CheckProduct("arcinfo"))) 
-                # and arcpy.CheckExtension("Aeronautical") == "Available")
-        return True
+        okRe = re.compile("(?:Available)|(?:AlreadyInitialized)", re.IGNORECASE)
+        return (okRe.match(arcpy.CheckProduct("arceditor")) != None or okRe.match(arcpy.CheckProduct("arcinfo")) != None) and okRe.match(arcpy.CheckExtension("Aeronautical")) != None
 
     def updateParameters(self, parameters):
         """Modify the values and properties of parameters before internal
@@ -192,11 +189,15 @@ class GenerateSurfaces(object):
                             messages.addMessage("Successfully set AirportLocationId fields to %s for new features." % AirportLocationId)
 
                     except IOError as ioEx:
-                        messages.addWarningMessage("An IO error occurred processing record with OID %i.\n%s"  % (ioEx, oid))
+                        messages.addWarningMessage("An IO error occurred processing record with OID %i.\n%s"  % (oid, ioEx))
                         messages.addGPMessages()
                     except arcpy.ExecuteError as ex:
-                        messages.addWarningMessage("Error running FAA FAR 77 tool for OID %i..." % oid)
-                        messages.addGPMessages()
+                        if re.search("tool is not licensed", ex.message, re.IGNORECASE):
+                            messages.addErrorMessage(ex.message)
+                            break
+                        else:
+                            messages.addWarningMessage("Error running FAA FAR 77 tool for OID %i...\n%s" % (oid, ex))
+                            messages.addGPMessages()
                     else:
                         messages.addMessage("Messages for row %i, OID %i:" % (i, oid))
                         messages.addGPMessages()
