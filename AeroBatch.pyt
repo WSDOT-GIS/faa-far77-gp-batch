@@ -108,7 +108,7 @@ class GenerateSurfaces(object):
                     #"RUNWAY_",
                     #"ELEVATION",
                     #"LineID",
-                    #"ID",
+                    "ID",
                     #"NAME",
                     #"COUNTY",
                     #"LENGTH",
@@ -173,6 +173,24 @@ class GenerateSurfaces(object):
 
                         arcpy.FAAFAR77_aeronautical(layer, surfaceFC, clear_way_length, "#", high_runway_end_type,
                                                     low_runway_end_type, airport_elevation, "PREDEFINED_SPECIFICATION")
+
+                        # If the FAAFAR77 was successfull, add AirportLocationId to new features.
+
+                        AirportLocationId = row[fieldsDict["ID"]]
+
+                        messages.addMessage("Setting AirportLocationId fields to %s for new features..." % AirportLocationId)
+                        try:
+                            # The newly created features will not have an AirportLocationId. Select these features.
+                            with arcpy.da.UpdateCursor(surfaceFC, ("AirportLocationId",), "AirportLocationId IS NULL") as ucursor:
+                                for urow in ucursor:
+                                    urow[0] = AirportLocationId
+                                    ucursor.updateRow(urow)
+                        except Exception as e:
+                            messages.addWarningMessage("An error occured when attempting to add %s value to %s.\n%s" % (
+                                                        "AirportLocationId", surfaceFC, e))
+                        else:
+                            messages.addMessage("Successfully set AirportLocationId fields to %s for new features." % AirportLocationId)
+
                     except IOError as ioEx:
                         messages.addWarningMessage("An IO error occurred processing record with OID %i.\n%s"  % (ioEx, oid))
                         messages.addGPMessages()
